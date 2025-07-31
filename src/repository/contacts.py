@@ -9,13 +9,13 @@ def get_contact(db: Session, contact_id: int, owner_id: int):
     Retrieves a single contact with the contact_id for a specific owner_id.
 
     :param contact_id: The ID of the contact to retrieve.
-    :type note_id: int
+    :type contact_id: int
     :param owner_id: The owner_id to retrieve the contact for.
     :type owner_id: int
     :param db: The database session.
     :type db: Session
     :return: The contact with the specified contact_id, or None if it does not exist.
-    :rtype: Note | None
+    :rtype: contact | None
     """
     return db.query(Contact).filter(
         Contact.id == contact_id,
@@ -64,6 +64,20 @@ def create_contact(db: Session, contact: ContactCreate, owner_id: int):
 
 
 def update_contact(db: Session, contact_id: int, contact: ContactUpdate, owner_id: int):
+    """
+    Updates a contact for a specific owner_id.
+
+    :param db: The database session.
+    :type db: Session
+    :param contact_id: The ID of the contact to retrieve.
+    :type contact_id: int
+    :param contact: The data for the contact to create.
+    :type contact: ContactUpdate
+    :param owner_id: The ID of the owner of the contacts.
+    :type owner_id: int
+    :return: Updated contact or  or None if it does not exist.
+    :rtype: Contact|None
+    """
     db_contact = get_contact(db, contact_id=contact_id, owner_id=owner_id)
     if not db_contact:
         return None
@@ -77,6 +91,18 @@ def update_contact(db: Session, contact_id: int, contact: ContactUpdate, owner_i
 
 
 def delete_contact(db: Session, contact_id: int, owner_id: int):
+    """
+    Removes a single contact for a specific owner_id.
+
+    :param db: The database session.
+    :type db: Session
+    :param contact_id: The ID of the contact to retrieve.
+    :type contact_id: int
+    :param owner_id: The ID of the owner of the contacts.
+    :type owner_id: int
+    :return: Deleted contact or  or None if it does not exist.
+    :rtype: Contact|None
+    """    
     db_contact = get_contact(db, contact_id=contact_id, owner_id=owner_id)
     if not db_contact:
         return None
@@ -87,6 +113,18 @@ def delete_contact(db: Session, contact_id: int, owner_id: int):
 
 
 def search_contacts(db: Session, query: str, owner_id: int):
+    """
+    Search a contact by query for a specific owner_id.
+
+    :param db: The database session.
+    :type db: Session
+    :param query: The search query to filter contacts.
+    :type query: str
+    :param owner_id: The owner_id to retrieve the contact for.
+    :type owner_id: int
+    :return: A list of contacts that match the search query.
+    :rtype: List[Contact]
+    """    
     return db.query(Contact).filter(
         Contact.owner_id == owner_id,
         (
@@ -98,6 +136,15 @@ def search_contacts(db: Session, query: str, owner_id: int):
 
 
 def get_upcoming_birthdays(db: Session, owner_id: int):
+    """
+    Retrieves a list of contacts with upcoming birthdays within the next week for a specific owner_id.
+    :param db: The database session.
+    :type db: Session
+    :param owner_id: The ID of the owner of the contacts.
+    :type owner_id: int
+    :return: A list of contacts with upcoming birthdays.
+    :rtype: List[Contact]
+    """
     today = date.today()
     next_week = today + timedelta(days=7)
     
