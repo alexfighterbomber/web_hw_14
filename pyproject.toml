@@ -1,10 +1,10 @@
 [tool.poetry]
-name = "web-hw-13-part-1"
+name = "web-hw-14"
 version = "0.1.0"
 description = ""
 authors = ["alexfighterbomber <ssamsobi@gmail.com>"]
 readme = "README.md"
-packages = [{include = "web_hw_13_part_1"}]
+packages = [{include = "web_hw_14"}]
 
 [tool.poetry.dependencies]
 python = "^3.13"
