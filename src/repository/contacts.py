@@ -4,7 +4,7 @@ from datetime import date, timedelta
 from src.database.models import Contact
 from src.schemas import ContactCreate, ContactUpdate
 
-def get_contact(db: Session, contact_id: int, owner_id: int):
+def get_contact(db: Session, contact_id: int, owner_id: int) -> Contact | None:
     """
     Retrieves a single contact with the contact_id for a specific owner_id.
 
@@ -22,7 +22,7 @@ def get_contact(db: Session, contact_id: int, owner_id: int):
         Contact.owner_id == owner_id
     ).first()
 
-def get_contacts(db: Session, owner_id: int, skip: int = 0, limit: int = 100):
+def get_contacts(db: Session, owner_id: int, skip: int = 0, limit: int = 100) -> list[Contact]:
     """
     Retrieves a list of contacts for a specific owner_id with specified pagination parameters.
 
@@ -43,7 +43,7 @@ def get_contacts(db: Session, owner_id: int, skip: int = 0, limit: int = 100):
     ).offset(skip).limit(limit).all()
 
 
-def create_contact(db: Session, contact: ContactCreate, owner_id: int):
+def create_contact(db: Session, contact: ContactCreate, owner_id: int) -> Contact:
     """
     Creates a new contact for a specific owner_id.
 
@@ -63,7 +63,7 @@ def create_contact(db: Session, contact: ContactCreate, owner_id: int):
     return db_contact
 
 
-def update_contact(db: Session, contact_id: int, contact: ContactUpdate, owner_id: int):
+def update_contact(db: Session, contact_id: int, contact: ContactUpdate, owner_id: int) -> Contact | None:
     """
     Updates a contact for a specific owner_id.
 
@@ -90,7 +90,7 @@ def update_contact(db: Session, contact_id: int, contact: ContactUpdate, owner_i
     return db_contact
 
 
-def delete_contact(db: Session, contact_id: int, owner_id: int):
+def delete_contact(db: Session, contact_id: int, owner_id: int) -> Contact | None:
     """
     Removes a single contact for a specific owner_id.
 
@@ -112,7 +112,7 @@ def delete_contact(db: Session, contact_id: int, owner_id: int):
     return db_contact
 
 
-def search_contacts(db: Session, query: str, owner_id: int):
+def search_contacts(db: Session, query: str, owner_id: int) -> list[Contact]:
     """
     Search a contact by query for a specific owner_id.
 
@@ -135,9 +135,10 @@ def search_contacts(db: Session, query: str, owner_id: int):
     ).all()
 
 
-def get_upcoming_birthdays(db: Session, owner_id: int):
+def get_upcoming_birthdays(db: Session, owner_id: int) -> list[Contact]:
     """
     Retrieves a list of contacts with upcoming birthdays within the next week for a specific owner_id.
+
     :param db: The database session.
     :type db: Session
     :param owner_id: The ID of the owner of the contacts.
