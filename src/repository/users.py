@@ -1,127 +1,101 @@
-import sys
-import os
-import unittest
-from unittest.mock import AsyncMock, MagicMock, patch
-from datetime import datetime
-
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
-
+from libgravatar import Gravatar
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import select, update
 from sqlalchemy.engine import Result
 
 from src.database.models import User
 from src.schemas import UserModel
-from src.repository.users import (
-    get_user_by_email,
-    create_user,
-    update_token,
-    confirmed_email,
-    update_avatar,
-)
 
-class TestUsers(unittest.IsolatedAsyncioTestCase):
 
-    def setUp(self):
-        self.session = AsyncMock(spec=AsyncSession)
-        self.user = User(
-            id=1,
-            username="testuser",
-            email="test@example.com",
-            password="pass123",
-            created_at=datetime.now(),
-            confirmed=False,
-            avatar=None,
-            refresh_token=None
-        )
-        self.user_model = UserModel(
-            username="testuser",
-            email="test@example.com",
-            password="pass123"
-        )
+async def get_user_by_email(email: str, db: AsyncSession) -> User | None:
+    '''
+    Retrieves a user from the database by their email address.
 
-    async def test_get_user_by_email_found(self):
-        mock_result = MagicMock(spec=Result)
-        mock_result.scalar_one_or_none.return_value = self.user
-        self.session.execute.return_value = mock_result
+    :param email: The email address of the user to retrieve.
+    :type email: str
+    :param db: The database session.
+    :type db: AsyncSession
+    :return: The user object if found, otherwise None.
+    :rtype: User | None
+    '''
+    stmt = select(User).where(User.email == email)
+    result: Result = await db.execute(stmt)
+    user = result.scalar_one_or_none()
+    return user
 
-        result = await get_user_by_email(email="test@example.com", db=self.session)
-        
-        self.assertEqual(result, self.user)
-        self.assertEqual(result.email, "test@example.com")
 
-    async def test_get_user_by_email_not_found(self):
-        mock_result = MagicMock(spec=Result)
-        mock_result.scalar_one_or_none.return_value = None
-        self.session.execute.return_value = mock_result
+async def create_user(body: UserModel, db: AsyncSession) -> User:
+    """
+    Creates a new user in the database.
+    
+    :param body: The user data to create.
+    :type body: UserModel
+    :param db: The database session.
+    :type db: AsyncSession
+    :return: The newly created user.
+    :rtype: User
+    """
+    avatar = None
+    try:
+        g = Gravatar(body.email)
+        avatar = g.get_image()
+    except Exception as e:
+        print(e)
+    
+    new_user = User(**body.dict(), avatar=avatar)
+    db.add(new_user)
+    await db.commit()
+    await db.refresh(new_user)
+    return new_user
 
-        result = await get_user_by_email(email="notfound@example.com", db=self.session)
-        
-        self.assertIsNone(result)
 
-    @patch("libgravatar.Gravatar.get_image")
-    async def test_create_user(self, mock_gravatar_get_image):
-        mock_gravatar_get_image.return_value = "http://example.com/avatar.jpg"
-        self.session.commit = AsyncMock()
-        self.session.refresh = AsyncMock()
+async def update_token(user: User, token: str | None, db: AsyncSession) -> None:
+    """
+    Updates the user's refresh token in the database.
 
-        result = await create_user(body=self.user_model, db=self.session)
-        
-        self.session.add.assert_called_once()
-        self.session.commit.assert_awaited_once()
-        self.session.refresh.assert_awaited_once()
-        self.assertEqual(result.email, self.user_model.email)
-        self.assertEqual(result.avatar, "http://example.com/avatar.jpg")
+    :param user: The user to update.
+    :type user: User
+    :param token: The new refresh token to set, or None to clear it.
+    :type token: str | None
+    :param db: The database session.
+    :type db: AsyncSession
+    """
+    user.refresh_token = token
+    await db.commit()
 
-    @patch("libgravatar.Gravatar.get_image")
-    async def test_create_user_gravatar_fails(self, mock_gravatar_get_image):
-        mock_gravatar_get_image.side_effect = Exception("Gravatar error")
-        self.session.commit = AsyncMock()
-        self.session.refresh = AsyncMock()
 
-        result = await create_user(body=self.user_model, db=self.session)
-        
-        self.assertEqual(result.avatar, None)
+async def confirmed_email(email: str, db: AsyncSession) -> None:
+    """
+    Marks the user's email as confirmed in the database.
 
-    async def test_update_token(self):
-        token = "new_refresh_token"
-        self.session.commit = AsyncMock()
+    :param email: The email of the user to confirm.
+    :type email: str
+    :param db: The database session.
+    :type db: AsyncSession
+    """
+    stmt = update(User).where(User.email == email).values(confirmed=True)
+    await db.execute(stmt)
+    await db.commit()
 
-        await update_token(user=self.user, token=token, db=self.session)
-        
-        self.session.commit.assert_awaited_once()
-        self.assertEqual(self.user.refresh_token, token)
 
-    async def test_confirmed_email(self):
-        mock_result = MagicMock()
-        self.session.execute.return_value = mock_result
-        self.session.commit = AsyncMock()
+async def update_avatar(email: str, url: str, db: AsyncSession) -> User:
+    """
+    Updates the user's avatar URL in the database.
 
-        await confirmed_email(email="test@example.com", db=self.session)
-        
-        self.session.commit.assert_awaited_once()
-
-    async def test_update_avatar(self):
-        mock_result = MagicMock(spec=Result)
-        mock_result.scalar_one.return_value = self.user
-        self.session.execute.return_value = mock_result
-        self.session.commit = AsyncMock()
-        self.session.refresh = AsyncMock()
-
-        new_avatar_url = "http://newavatar.com/image.jpg"
-        result = await update_avatar(email="test@example.com", url=new_avatar_url, db=self.session)
-        
-        self.session.commit.assert_awaited_once()
-        self.session.refresh.assert_awaited_once()
-        self.assertEqual(result.avatar, new_avatar_url)
-
-    async def test_update_avatar_not_found(self):
-        mock_result = MagicMock(spec=Result)
-        mock_result.scalar_one.side_effect = Exception("No user found")
-        self.session.execute.return_value = mock_result
-
-        new_avatar_url = "http://newavatar.com/image.jpg"
-        with self.assertRaises(Exception):
-            await update_avatar(email="notfound@example.com", url=new_avatar_url, db=self.session)
-
-if __name__ == '__main__':
-    unittest.main()
+    :param email: The email of the user whose avatar is to be updated.
+    :type email: str
+    :param url: The new avatar URL to set.
+    :type url: str
+    :param db: The database session.
+    :type db: AsyncSession
+    :return: The user with the updated avatar.
+    :rtype: User
+    """
+    stmt = select(User).where(User.email == email)
+    result: Result = await db.execute(stmt)
+    user = result.scalar_one()
+    
+    user.avatar = url
+    await db.commit()
+    await db.refresh(user)
+    return user

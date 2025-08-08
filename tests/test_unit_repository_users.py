@@ -1,19 +1,9 @@
-import sys
-import os
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
-
 import unittest
 from unittest.mock import MagicMock, patch
 from sqlalchemy.orm import Session
 from src.database.models import User
 from src.schemas import UserModel
-from src.repository.users import (
-    get_user_by_email,
-    create_user,
-    update_token,
-    confirmed_email,
-    update_avatar,
-)
+from src.repository.users import *
 from datetime import datetime
 
 class TestUsers(unittest.TestCase):
