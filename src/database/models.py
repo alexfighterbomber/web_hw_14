@@ -1,8 +1,7 @@
 from sqlalchemy import Column, Integer, String, Boolean, func, Table, UniqueConstraint, Date, Text
-from sqlalchemy.orm import relationship
+from sqlalchemy.orm import relationship, declarative_base
 from sqlalchemy.sql.schema import ForeignKey
 from sqlalchemy.sql.sqltypes import DateTime
-from sqlalchemy.ext.declarative import declarative_base
 
 Base = declarative_base()
 
@@ -16,8 +15,9 @@ class Contact(Base):
     phone = Column(String(20))
     birthday = Column(Date)
     additional_data = Column(Text, nullable=True)
-    owner_id = Column(Integer, nullable=False)  # Додали поле для власника контакту
+    owner_id = Column(Integer, ForeignKey('users.id'), nullable=False)  # Додали поле для власника контакту
 
+    owner = relationship("User", backref="contacts")
 
 class User(Base):
     __tablename__ = "users"

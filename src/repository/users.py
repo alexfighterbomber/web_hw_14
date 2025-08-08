@@ -1,7 +1,7 @@
 from libgravatar import Gravatar
-# from sqlalchemy.orm import Session
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.future import select
+from sqlalchemy import select, update
+from sqlalchemy.engine import Result
 
 from src.database.models import User
 from src.schemas import UserModel
@@ -18,7 +18,11 @@ async def get_user_by_email(email: str, db: AsyncSession) -> User | None:
     :return: The user object if found, otherwise None.
     :rtype: User | None
     '''
-    return db.query(User).filter(User.email == email).first()
+    stmt = select(User).where(User.email == email)
+    result: Result = await db.execute(stmt)
+    user = result.scalar_one_or_none()
+    return user
+
 
 async def create_user(body: UserModel, db: AsyncSession) -> User:
     """
@@ -27,7 +31,7 @@ async def create_user(body: UserModel, db: AsyncSession) -> User:
     :param body: The user data to create.
     :type body: UserModel
     :param db: The database session.
-    :type db: Session
+    :type db: AsyncSession
     :return: The newly created user.
     :rtype: User
     """
@@ -37,10 +41,11 @@ async def create_user(body: UserModel, db: AsyncSession) -> User:
         avatar = g.get_image()
     except Exception as e:
         print(e)
+    
     new_user = User(**body.dict(), avatar=avatar)
     db.add(new_user)
-    db.commit()
-    db.refresh(new_user)
+    await db.commit()
+    await db.refresh(new_user)
     return new_user
 
 
@@ -53,10 +58,10 @@ async def update_token(user: User, token: str | None, db: AsyncSession) -> None:
     :param token: The new refresh token to set, or None to clear it.
     :type token: str | None
     :param db: The database session.
-    :type db: Session
+    :type db: AsyncSession
     """
     user.refresh_token = token
-    db.commit()
+    await db.commit()
 
 
 async def confirmed_email(email: str, db: AsyncSession) -> None:
@@ -66,14 +71,14 @@ async def confirmed_email(email: str, db: AsyncSession) -> None:
     :param email: The email of the user to confirm.
     :type email: str
     :param db: The database session.
-    :type db: Session
+    :type db: AsyncSession
     """
-    user = await get_user_by_email(email, db)
-    user.confirmed = True
-    db.commit()
+    stmt = update(User).where(User.email == email).values(confirmed=True)
+    await db.execute(stmt)
+    await db.commit()
 
 
-async def update_avatar(email, url: str, db: AsyncSession) -> User:
+async def update_avatar(email: str, url: str, db: AsyncSession) -> User:
     """
     Updates the user's avatar URL in the database.
 
@@ -82,11 +87,15 @@ async def update_avatar(email, url: str, db: AsyncSession) -> User:
     :param url: The new avatar URL to set.
     :type url: str
     :param db: The database session.
-    :type db: Session
+    :type db: AsyncSession
     :return: The user with the updated avatar.
     :rtype: User
     """
-    user = await get_user_by_email(email, db)
+    stmt = select(User).where(User.email == email)
+    result: Result = await db.execute(stmt)
+    user = result.scalar_one()
+    
     user.avatar = url
-    db.commit()
+    await db.commit()
+    await db.refresh(user)
     return user
