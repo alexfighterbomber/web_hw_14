@@ -27,8 +27,7 @@ def get_contacts(db: Session, owner_id: int, skip: int = 0, limit: int = 100) ->
     Retrieves a list of contacts for a specific owner_id with specified pagination parameters.
 
     :param db: The database session.
-    :type db: Session
-    :return: A list of contacts.
+    :type db: AsyncSession
     :param owner_id: The ID of the owner of the contacts.
     :type owner_id: int
     :param skip: The number of contacts to skip.
@@ -36,7 +35,7 @@ def get_contacts(db: Session, owner_id: int, skip: int = 0, limit: int = 100) ->
     :param limit: The maximum number of contacts to return.
     :type limit: int
     :return: A list of contacts.
-    :rtype: List[Contact]
+    :rtype: List[ContactModel]
     """
     return db.query(Contact).filter(
         Contact.owner_id == owner_id
