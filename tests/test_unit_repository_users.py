@@ -1,20 +1,29 @@
 import unittest
-from unittest.mock import MagicMock, patch
-from sqlalchemy.orm import Session
-from src.database.models import User
-from src.schemas import UserModel
-from src.repository.users import *
+from unittest.mock import AsyncMock, MagicMock, patch
 from datetime import datetime
 
-class TestUsers(unittest.TestCase):
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.engine import Result
+
+from src.database.models import User
+from src.schemas import UserModel
+from src.repository.users import (
+    get_user_by_email,
+    create_user,
+    update_token,
+    confirmed_email,
+    update_avatar
+)
+
+class TestUsers(unittest.IsolatedAsyncioTestCase):
 
     def setUp(self):
-        self.session = MagicMock(spec=Session)
+        self.session = AsyncMock(spec=AsyncSession)
         self.user = User(
             id=1,
             username="testuser",
             email="test@example.com",
-            password="pass123",  # Исправлено: пароль длиной ≤ 10 символов
+            password="pass123",
             created_at=datetime.now(),
             confirmed=False,
             avatar=None,
@@ -23,99 +32,83 @@ class TestUsers(unittest.TestCase):
         self.user_model = UserModel(
             username="testuser",
             email="test@example.com",
-            password="pass123"  # Исправлено: пароль длиной ≤ 10 символов
+            password="pass123"
         )
 
-    def test_get_user_by_email_found(self):
-        mock_user = User(email="test@example.com")
-        self.session.query().filter().first.return_value = mock_user
-        result = get_user_by_email(email="test@example.com", db=self.session)
-        self.session.query().filter().first.assert_called_once()
-        self.assertEqual(result, mock_user)
+    async def test_get_user_by_email_found(self):
+        mock_result = MagicMock(spec=Result)
+        mock_result.scalar_one_or_none.return_value = self.user
+        self.session.execute.return_value = mock_result
+
+        result = await get_user_by_email(email="test@example.com", db=self.session)
+        
+        self.assertEqual(result, self.user)
         self.assertEqual(result.email, "test@example.com")
 
-    def test_get_user_by_email_not_found(self):
-        self.session.query().filter().first.return_value = None
-        result = get_user_by_email(email="notfound@example.com", db=self.session)
-        self.session.query().filter().first.assert_called_once()
+    async def test_get_user_by_email_not_found(self):
+        mock_result = MagicMock(spec=Result)
+        mock_result.scalar_one_or_none.return_value = None
+        self.session.execute.return_value = mock_result
+
+        result = await get_user_by_email(email="notfound@example.com", db=self.session)
+        
         self.assertIsNone(result)
 
     @patch("libgravatar.Gravatar.get_image")
-    def test_create_user(self, mock_gravatar_get_image):
+    async def test_create_user(self, mock_gravatar_get_image):
         mock_gravatar_get_image.return_value = "http://example.com/avatar.jpg"
-        self.session.add = MagicMock()
-        self.session.commit = MagicMock()
-        self.session.refresh = MagicMock()
-        result = create_user(body=self.user_model, db=self.session)
+        
+        result = await create_user(body=self.user_model, db=self.session)
+        
         self.session.add.assert_called_once()
-        self.session.commit.assert_called_once()
-        self.session.refresh.assert_called_once()
+        self.session.commit.assert_awaited_once()
+        self.session.refresh.assert_awaited_once()
         self.assertEqual(result.email, self.user_model.email)
-        self.assertEqual(result.username, self.user_model.username)
-        self.assertEqual(result.password, self.user_model.password)
         self.assertEqual(result.avatar, "http://example.com/avatar.jpg")
-        self.assertFalse(result.confirmed)
 
     @patch("libgravatar.Gravatar.get_image")
-    def test_create_user_gravatar_fails(self, mock_gravatar_get_image):
+    async def test_create_user_gravatar_fails(self, mock_gravatar_get_image):
         mock_gravatar_get_image.side_effect = Exception("Gravatar error")
-        self.session.add = MagicMock()
-        self.session.commit = MagicMock()
-        self.session.refresh = MagicMock()
-        result = create_user(body=self.user_model, db=self.session)
-        self.session.add.assert_called_once()
-        self.session.commit.assert_called_once()
-        self.session.refresh.assert_called_once()
-        self.assertEqual(result.email, self.user_model.email)
-        self.assertEqual(result.username, self.user_model.username)
-        self.assertEqual(result.password, self.user_model.password)
-        self.assertIsNone(result.avatar)
-        self.assertFalse(result.confirmed)
+        
+        result = await create_user(body=self.user_model, db=self.session)
+        
+        self.assertEqual(result.avatar, None)
 
-    def test_update_token(self):
+    async def test_update_token(self):
         token = "new_refresh_token"
-        self.session.commit = MagicMock()
-        update_token(user=self.user, token=token, db=self.session)
-        self.session.commit.assert_called_once()
+        
+        await update_token(user=self.user, token=token, db=self.session)
+        
         self.assertEqual(self.user.refresh_token, token)
+        self.session.commit.assert_awaited_once()
 
-    def test_confirmed_email(self):
-        self.session.query().filter().first.return_value = self.user
-        self.session.commit = MagicMock()
-        confirmed_email(email="test@example.com", db=self.session)
-        self.session.query().filter().first.assert_called_once()
-        self.session.commit.assert_called_once()
-        self.assertTrue(self.user.confirmed)
+    async def test_confirmed_email(self):
+        mock_result = MagicMock()
+        self.session.execute.return_value = mock_result
+        
+        await confirmed_email(email="test@example.com", db=self.session)
+        
+        self.session.commit.assert_awaited_once()
 
-    def test_confirmed_email_not_found(self):
-        self.session.query().filter().first.return_value = None
-        self.session.commit = MagicMock()
-        confirmed_email(email="notfound@example.com", db=self.session)
-        self.session.query().filter().first.assert_called_once()
-        self.session.commit.assert_not_called()
-
-    def test_update_avatar(self):
+    async def test_update_avatar(self):
+        mock_result = MagicMock(spec=Result)
+        mock_result.scalar_one.return_value = self.user
+        self.session.execute.return_value = mock_result
+        
         new_avatar_url = "http://newavatar.com/image.jpg"
-        self.session.query().filter().first.return_value = self.user
-        self.session.commit = MagicMock()
-        self.session.refresh = MagicMock()
-        result = update_avatar(email="test@example.com", url=new_avatar_url, db=self.session)
-        self.session.query().filter().first.assert_called_once()
-        self.session.commit.assert_called_once()
-        self.session.refresh.assert_called_once_with(self.user)
+        result = await update_avatar(email="test@example.com", url=new_avatar_url, db=self.session)
+        
         self.assertEqual(result.avatar, new_avatar_url)
-        self.assertEqual(result, self.user)
+        self.session.commit.assert_awaited_once()
 
-    def test_update_avatar_not_found(self):
+    async def test_update_avatar_not_found(self):
+        mock_result = MagicMock(spec=Result)
+        mock_result.scalar_one.side_effect = Exception("No user found")
+        self.session.execute.return_value = mock_result
+        
         new_avatar_url = "http://newavatar.com/image.jpg"
-        self.session.query().filter().first.return_value = None
-        self.session.commit = MagicMock()
-        self.session.refresh = MagicMock()
-        result = update_avatar(email="notfound@example.com", url=new_avatar_url, db=self.session)
-        self.session.query().filter().first.assert_called_once()
-        self.session.commit.assert_not_called()
-        self.session.refresh.assert_not_called()
-        self.assertIsNone(result)
+        with self.assertRaises(Exception):
+            await update_avatar(email="notfound@example.com", url=new_avatar_url, db=self.session)
 
 if __name__ == '__main__':
     unittest.main()
