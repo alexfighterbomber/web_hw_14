@@ -49,7 +49,8 @@ def user():
     return {
         "username": "deadpool",
         "email": "deadpool@example.com",
-        "password": "123456789"
+        "password": "123456789",
+        # "confirmed": False
     }
 
 @pytest.fixture

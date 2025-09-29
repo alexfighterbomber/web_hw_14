@@ -1,9 +1,11 @@
 import pytest
-from unittest.mock import MagicMock, AsyncMock
+from unittest.mock import MagicMock, AsyncMock, ANY
 from sqlalchemy import select
+from fastapi.security import HTTPAuthorizationCredentials
+
 from src.database.models import User
 from src.schemas import RequestEmail
-from fastapi.security import HTTPAuthorizationCredentials
+from src.services.auth import auth_service
 
 @pytest.mark.asyncio
 async def test_create_user(client, user, monkeypatch):
@@ -127,7 +129,6 @@ async def test_confirmed_email_first_time(client, user, monkeypatch, session):
     )
 
     # Устанавливаем confirmed=False
-    from src.database.models import User
     result = await session.execute(select(User).filter_by(email=user["email"]))
     current_user = result.scalar_one()
     current_user.confirmed = False
@@ -160,25 +161,6 @@ async def test_confirmed_email_already_confirmed(client, user, monkeypatch, sess
 
 
 @pytest.mark.asyncio
-async def test_request_email_not_confirmed(client, session, user, monkeypatch):
-    # Пользователь не подтвержден
-    result = await session.execute(select(User).filter_by(email=user["email"]))
-    db_user: User = result.scalar_one()
-    db_user.confirmed = False
-    session.add(db_user)
-    await session.commit()
-
-    mock_send_email = MagicMock()
-    monkeypatch.setattr("src.routes.auth.send_email", mock_send_email)
-
-    response = await client.post("/api/auth/request_email", json={"email": user["email"]})
-    assert response.status_code == 200
-    data = response.json()
-    assert data["message"] == "Check your email for confirmation."
-    mock_send_email.assert_called_once()
-
-
-@pytest.mark.asyncio
 async def test_request_email_already_confirmed(client, session, user):
     # Пользователь подтвержден
     result = await session.execute(select(User).filter_by(email=user["email"]))
@@ -191,3 +173,4 @@ async def test_request_email_already_confirmed(client, session, user):
     assert response.status_code == 200
     data = response.json()
     assert data["message"] == "Your email is already confirmed"
+

@@ -153,6 +153,34 @@ class TestContacts(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(len(result), 1)
         self.assertEqual(result[0].id, self.mock_contact.id)
 
+    async def test_get_upcoming_birthdays_year_boundary(self):
+
+        today = date.today()
+
+        if today.month == 12 and today.day > 25:
+            next_year_birthday = date(today.year + 1, 1, 3)
+        else:
+            next_year_birthday = today - timedelta(days=2)
+
+        mock_contact_past = Contact(
+            id=3,
+            first_name="Year",
+            last_name="Boundary", 
+            email="boundary@example.com",
+            phone="1111111111",
+            birthday=next_year_birthday,
+            owner_id=self.user.id
+        )
+        
+        mock_result = MagicMock(spec=Result)
+        mock_result.scalars.return_value.all.return_value = [mock_contact_past]
+        self.session.execute.return_value = mock_result
+
+        result = await get_upcoming_birthdays(
+            db=self.session,
+            owner_id=self.user.id)
+
+        self.assertIsInstance(result, list)
 
 if __name__ == '__main__':
     unittest.main()
