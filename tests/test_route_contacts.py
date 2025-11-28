@@ -54,3 +54,15 @@ async def test_delete_contact(logged_in_client):
     assert response.status_code == 200, response.text
     data = response.json()
     assert data["id"] == pytest.contact_id
+
+@pytest.mark.asyncio
+async def test_contact_not_found(logged_in_client):
+    client = await logged_in_client
+    contact_id = 999
+
+
+    response = await client.get(f"/api/contacts/{contact_id}")
+    
+ 
+    assert response.status_code == 404
+    assert response.json()["detail"] == "Contact not found"

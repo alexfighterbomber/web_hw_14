@@ -69,7 +69,7 @@ async def test_update_avatar_user_returns_user(logged_in_client, user, session):
          patch("cloudinary.CloudinaryImage.build_url", return_value="http://fake.url/avatar.png"), \
          patch("src.repository.users.update_avatar") as mock_update_avatar:
 
-        # Создаем mock пользователя с обновленным аватаром
+
         mock_user_with_avatar = User(
             id=1,
             username=user["username"],
@@ -93,12 +93,11 @@ async def test_update_avatar_user_returns_user(logged_in_client, user, session):
             files={"file": ("avatar.png", dummy_file, "image/png")},
         )
 
-        # Проверяем успешный ответ и что возвращен пользователь с обновленным аватаром
+
         assert response.status_code == 200
         data = response.json()
         assert data["avatar"] == "http://fake.url/avatar.png"
         assert data["email"] == user["email"]
         
-        # Просто проверяем что функция была вызвана (этого достаточно для покрытия строки return user)
         mock_update_avatar.assert_called_once()
         mock_upload.assert_called_once()

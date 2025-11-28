@@ -68,7 +68,7 @@ async def test_get_email_from_token_invalid():
 
 @pytest.mark.asyncio
 async def test_get_current_user_from_db():
-    # Создаём "живого" пользователя
+
     fake_user = User(
         id=1,
         username="testuser",

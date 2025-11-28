@@ -71,14 +71,13 @@ async def logged_in_client(client, user, session):
         session.add(new_user)
         await session.commit()
  
-    # 2. Логинимся
+    # Login to get the token
     login_resp = await client.post(
         "/api/auth/login",
         data={"username": user["email"], "password": user["password"]}
     )
     token = login_resp.json()["access_token"]
 
-    # 3. Класс для удобного использования клиента с токеном
     class ClientWithAuth:
         def __init__(self, client, token):
             self.client = client
